@@ -1,0 +1,34 @@
+# qemu.fragment
+CONFIG_KVM=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+CONFIG_VIRTIO=y
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_BLK=y
+CONFIG_VIRTIO_CONSOLE=y
+CONFIG_SERIAL_AMBA_PL011=y
+CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
+CONFIG_MODULES=y
+CONFIG_MODULE_SIG_FORCE=n
+
+# pKVM hypervisor debugging (NVHE_EL2_DEBUG no longer exists; this is its
+# replacement) and the in-tree example hyp module.
+CONFIG_PKVM_DEBUG=y
+CONFIG_PKVM_FTRACE=y
+CONFIG_PKVM_SMC_FILTER=m
+CONFIG_TRACING=y
+CONFIG_GDB_SCRIPTS=y
+
+# Debug info for gdb; no BTF or compression, so builds are faster and any gdb
+# can read it.
+CONFIG_DEBUG_INFO_DWARF5=y
+# CONFIG_DEBUG_INFO_BTF is not set
+CONFIG_DEBUG_INFO_COMPRESSED_NONE=y
+# CONFIG_DEBUG_INFO_COMPRESSED_ZSTD is not set
+
+# Things gki_defconfig enables that only slow down / complicate a TCG dev build.
+# CONFIG_RUST is not set
+# CONFIG_KASAN is not set
+# CONFIG_CFI_CLANG is not set
+# CONFIG_SHADOW_CALL_STACK is not set
