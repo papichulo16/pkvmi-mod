@@ -52,9 +52,10 @@ DEV_NODES = [
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("-k", "--kout", default=str(ROOT / "ignore/out-qemu"))
-    ap.add_argument("-o", "--out",
-                    default=str(ROOT / "ignore/initramfs.cpio.gz"))
+    ap.add_argument("-k", "--kout",
+                    default=os.environ.get(
+                        "KOUT", str(ROOT / "ignore/out-qemu-6.1")))
+    ap.add_argument("-o", "--out", help="default: <KOUT>/initramfs.cpio.gz")
     ap.add_argument("-x", "--extra", action="append", default=[],
                     metavar="SRC[:DEST]",
                     help="copy a file in, executable; DEST defaults to /<name>")
@@ -67,6 +68,7 @@ def main():
         sys.exit(f"{ALPINE} missing: run scripts/fetch-rootfs.sh")
 
     kout = Path(args.kout)
+    out = Path(args.out) if args.out else kout / "initramfs.cpio.gz"
     release = (kout / "include/config/kernel.release").read_text().strip()
     gen_cpio = kout / "usr/gen_init_cpio"
     if not gen_cpio.exists():
@@ -127,9 +129,9 @@ def main():
                               stdout=subprocess.PIPE).stdout
         gz = subprocess.run(["gzip", "-9"], input=cpio, check=True,
                             stdout=subprocess.PIPE).stdout
-        Path(args.out).write_bytes(gz)
+        out.write_bytes(gz)
 
-    print(f"{args.out}: {len(gz) >> 10} KiB, release {release}, "
+    print(f"{out}: {len(gz) >> 10} KiB, release {release}, "
           f"modules: {[Path(m).name for m in args.modules]}")
 
 

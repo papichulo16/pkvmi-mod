@@ -9,5 +9,5 @@ ignore/
 .*.cmd
 modules.order
 Module.symvers
-examples/*/hello_test
+tests/*/hello_test
 __pycache__/

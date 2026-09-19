@@ -1,0 +1,28 @@
+# qemu-6.1.fragment
+# For the Pixel trees' aosp/ (android-gs-*-6.1-*). The 6.12 one is qemu.fragment;
+# 6.1 spells the pKVM debug option NVHE_EL2_DEBUG and has no PKVM_* debug menu.
+CONFIG_KVM=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_DEVTMPFS=y
+CONFIG_DEVTMPFS_MOUNT=y
+CONFIG_VIRTIO=y
+CONFIG_VIRTIO_PCI=y
+CONFIG_VIRTIO_BLK=y
+CONFIG_VIRTIO_CONSOLE=y
+CONFIG_SERIAL_AMBA_PL011=y
+CONFIG_SERIAL_AMBA_PL011_CONSOLE=y
+CONFIG_MODULES=y
+CONFIG_MODULE_SIG_FORCE=n
+CONFIG_NVHE_EL2_DEBUG=y
+CONFIG_TRACING=y
+CONFIG_GDB_SCRIPTS=y
+
+# Debug info for gdb; no BTF or compression so builds are faster.
+CONFIG_DEBUG_INFO_DWARF5=y
+# CONFIG_DEBUG_INFO_BTF is not set
+# CONFIG_DEBUG_INFO_COMPRESSED is not set
+
+# Things gki_defconfig enables that only slow down a TCG dev build.
+# CONFIG_KASAN is not set
+# CONFIG_CFI_CLANG is not set
+# CONFIG_SHADOW_CALL_STACK is not set

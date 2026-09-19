@@ -54,9 +54,9 @@ void __attribute__((noreturn)) _start(void) {
 	print("\n");
 
 	failed = !str_eq(msg, "Hello from EL1!");
+
 out:
 	print(failed ? "FAIL\n" : "PASS\n");
 	sys_call(SYS_EXIT_GROUP, failed, 0, 0);
-	for (;;)
-		;
+	for (;;);
 }

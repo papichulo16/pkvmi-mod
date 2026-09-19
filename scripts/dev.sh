@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Compile a module dir and pack it into ignore/initramfs.cpio.gz.
+# Compile a module dir and pack it into $KOUT/initramfs.cpio.gz.
 # Then run ./run-qemu.sh yourself.
 set -euo pipefail
 
 g_here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-g_kout=$g_here/../ignore/out-qemu
+g_kout=${KOUT:-$g_here/../ignore/out-qemu-6.1}
 g_dir=$PWD
 g_bins=()
 g_mods=()
@@ -16,7 +16,7 @@ usage: dev.sh [-C DIR] [-b FILE]... [-m FILE]... [-k DIR]
   -C DIR   directory to run `make` in (default: current dir)
   -b FILE  userspace binary, placed in the guest at /<name> (repeatable)
   -m FILE  module .ko loaded at boot (repeatable; default: every .ko in DIR)
-  -k DIR   kernel build dir (default: ../out-qemu)
+  -k DIR   kernel build dir (default: $KOUT, else ../ignore/out-qemu-6.1)
 
 Relative -b/-m paths are looked up in DIR first, then the current dir.
 Afterwards run ./run-qemu.sh; the modules are already loaded at the shell.
@@ -90,9 +90,21 @@ dev_guest_script() {
 	done
 }
 
-# pkvm_smc is what run-qemu.sh loads as the early EL2 module by default
+# modules must be built with the compiler the kernel was built with; SETUP.md
+# records it in <kernel dir>/llvm. Exporting LLVM overrides it.
+dev_llvm() {
+	if [[ -n ${LLVM:-} ]]; then
+		echo "$LLVM"
+	elif [[ -f $g_kout/llvm ]]; then
+		cat "$g_kout/llvm"
+	else
+		echo 1
+	fi
+}
+
 dev_pack_initramfs() {
-	local args=(-k "$g_kout" -o "$g_here/../ignore/initramfs.cpio.gz")
+	local args=(-k "$g_kout" -o "$g_kout/initramfs.cpio.gz")
+	local early=()
 	local bin
 
 	for bin in "${g_bins[@]}"; do
@@ -101,16 +113,20 @@ dev_pack_initramfs() {
 
 	args+=(--run "$(dev_guest_script)")
 
-	"$g_here/mkinitramfs.py" "${args[@]}" \
-		drivers/misc/pkvm-smc/pkvm_smc.ko "${g_mods[@]}"
+	# pkvm_smc is what run-qemu.sh loads early by default, but only 6.12 has it
+	if [[ -f $g_kout/drivers/misc/pkvm-smc/pkvm_smc.ko ]]; then
+		early=(drivers/misc/pkvm-smc/pkvm_smc.ko)
+	fi
+
+	"$g_here/mkinitramfs.py" "${args[@]}" "${early[@]}" "${g_mods[@]}"
 }
 
 main() {
 	dev_parse_args "$@"
-	make -C "$g_dir" KDIR="$g_kout"
+	make -C "$g_dir" KDIR="$g_kout" LLVM="$(dev_llvm)"
 	dev_collect_files
 	dev_pack_initramfs
-	echo "dev.sh: ready. run: $g_here/run-qemu.sh"
+	echo "dev.sh: ready. run: KOUT=$g_kout $g_here/run-qemu.sh"
 }
 
 main "$@"

@@ -11,9 +11,8 @@
 #
 # Quit QEMU with Ctrl-A x.
 HERE=$(cd "$(dirname "$0")" && pwd)
-KOUT=${KOUT:-$HERE/../ignore/out-qemu}
-INITRD=${INITRD:-$HERE/../ignore/initramfs.cpio.gz}
-PKVM_MODULES=${PKVM_MODULES-pkvm_smc}
+KOUT=${KOUT:-$HERE/../ignore/out-qemu-6.1}
+INITRD=${INITRD:-$KOUT/initramfs.cpio.gz}
 SMP=${SMP:-4}
 MEM=${MEM:-2G}
 
@@ -21,6 +20,15 @@ MEM=${MEM:-2G}
 	{ echo "run-qemu: no kernel at $KOUT, build it first (SETUP.md)" >&2; exit 1; }
 [ -f "$INITRD" ] ||
 	{ echo "run-qemu: no initramfs at $INITRD, run scripts/dev.sh first" >&2; exit 1; }
+
+echo "run-qemu: booting kernel $(cat "$KOUT/include/config/kernel.release") from $KOUT" >&2
+
+# early EL2 module: the in-tree pkvm_smc example exists on 6.12 only. Set
+# PKVM_MODULES yourself (even to empty) to override.
+if [ -z "${PKVM_MODULES+x}" ]; then
+	PKVM_MODULES=
+	[ ! -f "$KOUT/drivers/misc/pkvm-smc/pkvm_smc.ko" ] || PKVM_MODULES=pkvm_smc
+fi
 
 # nokaslr: so vmlinux symbols match the running kernel in gdb.
 CMDLINE="console=ttyAMA0 earlycon nokaslr loglevel=8 rdinit=/init"
