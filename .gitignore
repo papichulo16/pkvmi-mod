@@ -11,3 +11,6 @@ modules.order
 Module.symvers
 tests/*/hello_test
 __pycache__/
+tests/*/hyp/hyp.lds
+tests/*/hyp/hyp-reloc.S
+bugreport-*.zip

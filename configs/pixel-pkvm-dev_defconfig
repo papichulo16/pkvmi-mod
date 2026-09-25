@@ -1,0 +1,7 @@
+# pixel-pkvm-dev_defconfig
+# Applied by scripts/pixel/build-device.sh to the GKI kernel and the device
+# modules. Only adds hypervisor debugging; everything else is the stock config.
+
+# Page-table checks at EL2, and file:line plus a hyp stack trace on hyp panic.
+CONFIG_NVHE_EL2_DEBUG=y
+CONFIG_PROTECTED_NVHE_STACKTRACE=y

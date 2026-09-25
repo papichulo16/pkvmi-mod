@@ -14,6 +14,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 KOUT=${KOUT:-$HERE/../ignore/out-qemu-6.1}
 INITRD=${INITRD:-$KOUT/initramfs.cpio.gz}
 SMP=${SMP:-4}
+CPU=${CPU:-cortex-a76}
 MEM=${MEM:-2G}
 
 [ -f "$KOUT/arch/arm64/boot/Image" ] ||
@@ -40,10 +41,11 @@ CMDLINE="$CMDLINE $EXTRA"
 
 # virtualization=on : boot the kernel at EL2 (required for KVM/pKVM)
 # gic-version=3     : pKVM only supports GICv3
-# -cpu max          : all the v8.x features the kernel probes for
+# -cpu cortex-a76   : Armv8.2 like the Tensor G2 (no PAuth/BTI/MTE). CPU=max for
+#                     every v8.x feature the kernel probes for
 exec qemu-system-aarch64 \
 	-M virt,virtualization=on,gic-version=3 \
-	-cpu max -smp "$SMP" -m "$MEM" \
+	-cpu "$CPU" -smp "$SMP" -m "$MEM" \
 	-accel tcg,thread=multi \
 	-nographic -no-reboot \
 	-kernel "$KOUT/arch/arm64/boot/Image" \

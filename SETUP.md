@@ -148,7 +148,7 @@ The `vpath` line is needed on 6.12 (its external-module Kbuild cannot find `Make
 
 EL1 declares the EL2 entry with the prefix: `int __kvm_nvhe_<init>(const struct pkvm_module_ops *ops);`.
 
-Run it: `dev.sh -C mymod`, then `PKVM_MODULES=mymod scripts/run-qemu.sh`. Expect `[permanent]` in `/proc/modules`. `dev.sh` also `modprobe`s it at `/init`, which is a harmless no-op once it is loaded.
+Run it: `dev.sh -C mymod`, then `PKVM_MODULES=mymod scripts/run-qemu.sh`. Expect the module's own log lines (for `tests/hello_hvc`: `pkvm_load_el2_module ret=0` and `hvc returned 67 (want 67)`). `[permanent]` in `/proc/modules` only shows for a module with no `module_exit`, so it is no proof of the EL2 load. `dev.sh` also `modprobe`s it at `/init`, which is a harmless no-op once it is loaded.
 
 6.1 has no in-tree example; use Google's `pkvm-s2mpu` (`private/google-modules/soc/gs/drivers/soc/google/pkvm-s2mpu`). 6.12 has `~/ack/drivers/misc/pkvm-smc` (an SMC filter).
 
@@ -182,10 +182,42 @@ cd -
 ## 8. Phone images (Pixel)
 
 ```sh
-scripts/pixel/build-device.sh pixel7 --lto=none    # ~10 min -> ignore/pixel/kernels/.../out/pantah/dist/*.img
+scripts/pixel/build-device.sh pixel7 --lto=thin    # ~10 min -> ignore/pixel/kernels/.../out/pantah/dist/*.img
 ```
 
-- Always use `build-device.sh`. The tree's own `build_*.sh` defaults to Google's prebuilt kernel and ignores edits under `aosp/`. To check a build is yours: `strings -a .../dist/Image | grep -m1 '^Linux version'` ends in `g<aosp HEAD sha>`, not `-ab<number>`.
-- Phone template module: Google's `pkvm-s2mpu` (`gs201/BUILD.bazel:223`). Boot args `kvm-arm.protected_modules=exynos-pd,pkvm_s2mpu` are in `gs201.dtsi`.
-- The phone's installed Android build must match the branch's Android release; flash the matching factory image first (flash.android.com).
-- Not done yet: a Kleaf rule for your own module, the ramdisk list, the boot args, flashing. Keep the factory image: a bad early hyp module can stop the boot.
+By default this is a **pKVM dev build**: the stock Pixel config plus `configs/pixel-pkvm-dev_defconfig` (`NVHE_EL2_DEBUG`, `PROTECTED_NVHE_STACKTRACE`), with KMI trimming off, so the kernel exports every `EXPORT_SYMBOL` (~15k) instead of only the Pixel KMI list (~2.9k), and fips140 is built from source. `STOCK=1` builds the unmodified config. `PKVM_DEBUG=0` leaves out the two debug options. `PKVM_TRIM=1` keeps Google's KMI trimming and exports only the symbols in `configs/pixel-kmi-extra.symbols` on top of the Pixel list (it adds them to `aosp/android/abi_gki_aarch64_pixel`, which makes the kernel release end in `-dirty`); use it with a module that needs a symbol outside the Pixel KMI. `--lto=thin` keeps CFI like the shipped kernel; `--lto=none` builds faster but drops CFI; full LTO (the default) may run out of RAM on 30 GB.
+
+Check the build is right:
+
+```sh
+D=ignore/pixel/kernels/pantah-6.1-android16/out/pantah/dist
+strings -a $D/Image | grep -m1 '^Linux version'      # ends in g<aosp HEAD sha>
+sh ignore/pixel/kernels/pantah-6.1-android16/aosp/scripts/extract-ikconfig $D/Image | grep -E 'NVHE_EL2_DEBUG|TRIM_UNUSED'
+wc -l $D/vmlinux.symvers                              # ~15000, not ~3000
+```
+
+Flash (done on a Pixel 7, Android 15 userspace, unlocked bootloader; slot `a` was unbootable, so there was no fallback slot). All kernel partitions come from the same build, so the vendor modules match the kernel. The first time only, also disable verification, since the stock hashes do not match your `*_dlkm` images: `avbtool make_vbmeta_image --flags 2 --padding_size 4096 --output vbmeta_off.img` (avbtool is under `prebuilts/kernel-build-tools/linux-x86/bin/` in the tree) and `fastboot --disable-verity --disable-verification flash vbmeta vbmeta_off.img`. Use the project's `fastboot` (`. scripts/pixel/env.sh`): a distro `fastboot` failed on that command with `Failed to find AVB_MAGIC`. Copy `dist/*.img` somewhere first, since every build overwrites it and a bad flash needs the last good images back.
+
+```sh
+cd $D
+fastboot flash boot boot.img
+fastboot flash dtbo dtbo.img
+fastboot flash vendor_kernel_boot vendor_kernel_boot.img   # dtb + first-stage modules
+fastboot reboot fastboot                                    # fastbootd, for the dynamic partitions
+fastboot flash vendor_dlkm vendor_dlkm.img
+fastboot flash system_dlkm system_dlkm.img
+fastboot reboot
+```
+
+Things that went wrong, and why:
+
+- **Reboot loop before fastbootd.** `CONFIG_PANIC_TIMEOUT=-1`, so any panic reboots at once. A module in `vendor_kernel_boot.modules.load` whose init fails looped the phone, so keep the module's init tolerant (`tests/hello_hvc/el1.c` logs the error and still registers). Recover from the bootloader (hold Volume Down through a reboot) by flashing the last good `boot`, `dtbo` and `vendor_kernel_boot`. `fastboot reboot fastboot` only works if `boot` and `vendor_kernel_boot` are from the same build.
+- **"Cannot load Android system. Your data may be corrupt."** after flashing images whose `boot.img` has no OS patch level (`unpack_bootimg.py` shows `None`; Kleaf's does). The wrapped storage keys no longer match, so choose Factory data reset on that screen (or `fastboot -w`).
+- The first `fastboot reboot fastboot` needs the new kernel to boot, so the bootloader-level images (`boot`, `dtbo`, `vendor_kernel_boot`) go first and the two `*_dlkm` images second.
+
+- Always use `build-device.sh`. The tree's own `build_*.sh` defaults to Google's prebuilt kernel and ignores edits under `aosp/`.
+- The tree is 6.1.124 (aosp HEAD from 2025-03). Before unlocking, note `adb shell uname -r`; if the phone runs a much newer kernel, flash an older Android 16 factory image first (flash.android.com), since vendor userspace (GPU, camera HALs) can depend on newer drivers. Keep a factory image on hand either way: a bad early hyp module stops the boot.
+- EL2 modules must load at boot: after pKVM finalizes, the hypervisor rejects the module hypercalls (`hcall_min` in `hyp/nvhe/hyp-main.c`). They load through `kvm-arm.protected_modules=` (in `gs201.dtsi`, currently `exynos-pd,pkvm_s2mpu`) from the first-stage ramdisk in `vendor_kernel_boot.img`, so each EL2 change means reflashing that partition.
+- EL1 modules can `insmod` at runtime, which needs root on a user build (e.g. Magisk patching the factory `init_boot.img`). Unsigned modules load (`MODULE_SIG_FORCE` off) but taint the kernel.
+- Phone template module: Google's `pkvm-s2mpu` (`gs201/BUILD.bazel:223`).
+- Your own modules ride along in the same build. Kleaf is Google's Bazel-based kernel build system (`build_pantah.sh` is a wrapper around it): a `kernel_module` rule builds a module against the exact kernel it belongs to, and `kernel_images` packs modules into the images. `build-device.sh` writes that rule for every dir in `PKVM_MODULES` (default `tests/hello_hvc`; `PKVM_MODULES=""` for none, `PKVM_MODULES="tests/a tests/b"` for several). Each dir is an out-of-tree module as in section 6 (its Makefile or Kbuild needs `obj-m := name.o`). Per module it copies the dir into the tree as `pkvmi/<dir>`, adds the module to the device package's `kernel_ext_modules` (`BUILD.bazel`, line marked `# pkvmi`) and to `vendor_ramdisk.modules.<codename>`, and appends `,<name>` to `kvm-arm.protected_modules=` in the SoC's `dts/gs201.dtsi` bootargs. It has to be the device tree: the kernel keeps the last `kvm-arm.protected_modules=` on its command line, and the built-in `CONFIG_CMDLINE` sits before the device tree's bootargs, so a built-in copy is silently overridden (seen on the phone). Without the name in that list the kernel does not load the module early, `init` loads it later from `modules.load`, and the EL2 load fails with `-95` (`-EOPNOTSUPP`, pKVM already finalized). All three edits (device package, ramdisk list, device tree) are undone at the start of every run, so `STOCK=1` leaves the tree as Google shipped it. The module then appears in `vendor_kernel_boot.img` (and `vendor_dlkm.img`). Check: `grep hello $D/vendor_kernel_boot.modules.load`, `hello.ko` in `$D`, and `hello` at the end of `kvm-arm.protected_modules=` in the built `$D/gs201-*.dtb` (`strings`). On the phone, `adb bugreport` carries the kernel log (`logcat -b kernel` and `dmesg` are not readable as `shell`; use `grep -a`, the file has binary bytes): look for `loading hello from /lib/modules/ failed, fallback to the default path`, then `hello: pkvm_load_el2_module ret=0` and `hello: hvc returned 67 (want 67)`. Verified on a Pixel 7 this way. A module-only rebuild takes ~2.5 min (kernel comes from the Bazel cache). A module's Makefile needs `modules` and `modules_install` targets that run `$(MAKE) -C $(KERNEL_SRC) M=$(M) $@`, which is how Kleaf calls it (see `tests/hello_hvc/Makefile`).
