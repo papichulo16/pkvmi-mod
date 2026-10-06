@@ -8,14 +8,16 @@ g_kout=${KOUT:-$g_here/../ignore/out-qemu-6.1}
 g_dir=$PWD
 g_bins=()
 g_mods=()
+g_run=()
 
 usage() {
 	cat <<'EOF'
-usage: dev.sh [-C DIR] [-b FILE]... [-m FILE]... [-k DIR]
+usage: dev.sh [-C DIR] [-b FILE]... [-m FILE]... [-r CMD]... [-k DIR]
 
   -C DIR   directory to run `make` in (default: current dir)
   -b FILE  userspace binary, placed in the guest at /<name> (repeatable)
   -m FILE  module .ko loaded at boot (repeatable; default: every .ko in DIR)
+  -r CMD   guest shell command run after the modules load (repeatable)
   -k DIR   kernel build dir (default: $KOUT, else ../ignore/out-qemu-6.1)
 
 Relative -b/-m paths are looked up in DIR first, then the current dir.
@@ -32,7 +34,7 @@ dev_parse_args() {
 	while [[ $# -gt 0 ]]; do
 		case $1 in
 		-h|--help) usage; exit 0 ;;
-		-C|-b|-m|-k) [[ $# -ge 2 ]] || die "$1 needs a value" ;;
+		-C|-b|-m|-r|-k) [[ $# -ge 2 ]] || die "$1 needs a value" ;;
 		*) die "unknown option: $1 (-h for help)" ;;
 		esac
 
@@ -40,6 +42,7 @@ dev_parse_args() {
 		-C) g_dir=$2 ;;
 		-b) g_bins+=("$2") ;;
 		-m) g_mods+=("$2") ;;
+		-r) g_run+=("$2") ;;
 		-k) g_kout=$2 ;;
 		esac
 		shift 2
@@ -82,11 +85,15 @@ dev_collect_files() {
 }
 
 dev_guest_script() {
-	local mod name
+	local mod name cmd
 
 	for mod in "${g_mods[@]}"; do
 		name=$(basename "$mod" .ko)
 		echo "modprobe $name || echo 'dev.sh: modprobe $name failed'"
+	done
+
+	for cmd in "${g_run[@]}"; do
+		echo "$cmd"
 	done
 }
 

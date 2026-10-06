@@ -6,7 +6,7 @@
 #include <linux/uaccess.h>
 #include <asm/kvm_pkvm_module.h>
 
-#include "hello_el1.h"
+#include "el1.h"
 
 int __kvm_nvhe_pkvm_hello_init(const struct pkvm_module_ops *ops);
 void __kvm_nvhe_pkvm_hello_hvc(struct kvm_cpu_context *ctx);

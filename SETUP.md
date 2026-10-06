@@ -106,6 +106,26 @@ On 6.1 an early module also logs `loading <name> from /lib/modules/ failed, fall
 
 QEMU: `-M virt,virtualization=on,gic-version=3 -cpu max` (TCG). It is not a Pixel: no Tensor SoC, no S2MPU or IOMMU, no bootloader or TrustZone.
 
+## Working on `src/`
+
+```sh
+scripts/src-test.sh     # build, boot QEMU, run /userspace, power off; exit 0 on PASS (log: ignore/src-test.log)
+scripts/src-run.sh      # build, boot with pkvmi as an early EL2 module, drop to a shell (/userspace by hand)
+scripts/src-build.sh    # build and repack the initramfs only
+```
+
+Breakpoints inside the EL2 module (hit on every hypercall):
+
+```sh
+GDB=1 scripts/src-run.sh     # terminal 1: QEMU frozen at reset
+scripts/src-gdb.sh           # terminal 2: then `c`; run /userspace in terminal 1
+HYP_FUNCS="pkvm_hello_hvc other_fn" scripts/src-gdb.sh   # more EL2 breakpoints
+```
+
+`src-gdb.sh` runs plain gdb (`-nx`; pwndbg hangs on the symbol load). Source-level debugging works in `src/hyp/el2.c`. The EL2 init function is not breakable this way: it has already run when the hyp VA becomes known.
+
+`dev.sh -r CMD` appends a guest command that runs after the modules load. `TIMEOUT=<s>` bounds `src-test.sh`.
+
 ## 6. Writing modules
 
 ### EL1

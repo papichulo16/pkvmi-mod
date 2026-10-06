@@ -1,4 +1,4 @@
-#include "hello_el1.h"
+#include "el1.h"
 
 #define SYS_IOCTL 29
 #define SYS_OPENAT 56
@@ -45,12 +45,6 @@ void __attribute__((noreturn)) _start(void) {
 	char msg[HELLO_MSG_LEN];
 	int failed = 1;
 	long fd = sys_call(SYS_OPENAT, AT_FDCWD, (long)"/dev/hello", O_RDWR);
-
-  if (!sys_call(SYS_IOCTL, fd, HELLO_HYPM_INIT, (long)msg)) {
-
-    print("hypervisor module init fail\n");
-    goto out;
-  }
 
 	if (fd < 0 || sys_call(SYS_IOCTL, fd, HELLO_HYPM_GREET, (long)msg) != 0)
 		goto out;
