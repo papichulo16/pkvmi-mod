@@ -1,9 +1,11 @@
 #include <asm/kvm_pkvm_module.h>
 #include <nvhe/trap_handler.h>
 
-int pkvm_hello_init(const struct pkvm_module_ops *ops) {
+static struct pkvm_module_ops* ops;
 
-  /* Init the EL2 code */
+int pkvm_hello_init(struct pkvm_module_ops* _ops) {
+
+  ops = _ops;
 
   return 0;
 }

@@ -6,7 +6,7 @@
 #include <linux/uaccess.h>
 #include <asm/kvm_pkvm_module.h>
 
-#include "el1.h"
+#include "pkvmi.h"
 
 int __kvm_nvhe_pkvm_hello_init(const struct pkvm_module_ops *ops);
 void __kvm_nvhe_pkvm_hello_hvc(struct kvm_cpu_context *ctx);
@@ -14,7 +14,7 @@ void __kvm_nvhe_pkvm_hello_hvc(struct kvm_cpu_context *ctx);
 char* g_msg;
 static int hello_hvc;
 
-static int pkvm_driver_init(void) {
+int pkvm_driver_init(void) {
 
   unsigned long token;
   int ret;
@@ -34,7 +34,7 @@ static int pkvm_driver_init(void) {
   return 0;
 }
 
-static long hello_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+long hello_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 	long ret = -ENOTTY;
   int r;
@@ -58,35 +58,3 @@ static long hello_ioctl(struct file *file, unsigned int cmd, unsigned long arg) 
 	return ret;
 }
 
-static const struct file_operations g_hello_fops = {
-	.owner = THIS_MODULE,
-	.unlocked_ioctl = hello_ioctl,
-};
-
-static struct miscdevice g_hello_misc = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "hello",
-	.fops = &g_hello_fops,
-	.mode = 0666,
-};
-
-static int __init hello_init(void) {
-
-  int ret = pkvm_driver_init();
-
-  if (ret)
-    return ret;
-
-  return misc_register(&g_hello_misc);
-}
-
-static void __exit hello_exit(void) {
-
-  misc_deregister(&g_hello_misc);
-}
-
-module_init(hello_init);
-module_exit(hello_exit);
-
-MODULE_DESCRIPTION("hello world from an hvc sent over ioctl");
-MODULE_LICENSE("GPL");

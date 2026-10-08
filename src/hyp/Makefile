@@ -2,5 +2,7 @@
 # linker script; harmless on 6.1
 vpath %.S $(srctree)
 
-hyp-obj-y := el2.o
+# Every .c in this directory is built into the EL2 object.
+hyp-obj-y := $(patsubst $(src)/%.c,%.o,$(sort $(wildcard $(src)/*.c)))
 include $(srctree)/arch/arm64/kvm/hyp/nvhe/Makefile.module
+
