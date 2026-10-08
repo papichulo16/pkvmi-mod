@@ -7,46 +7,47 @@
 #include <asm/kvm_pkvm_module.h>
 
 #include "pkvmi.h"
+#include "pkvmi_args.h"
 
-int __kvm_nvhe_pkvm_hello_init(const struct pkvm_module_ops *ops);
-void __kvm_nvhe_pkvm_hello_hvc(struct kvm_cpu_context *ctx);
+int __kvm_nvhe_pkvmi_init(const struct pkvm_module_ops *ops);
+void __kvm_nvhe_pkvmi_hvc(struct kvm_cpu_context *ctx);
 
 char* g_msg;
-static int hello_hvc;
+static int pkvmi_hvc;
 
 int pkvm_driver_init(void) {
 
   unsigned long token;
   int ret;
 
-  ret = pkvm_load_el2_module(__kvm_nvhe_pkvm_hello_init, &token);
+  ret = pkvm_load_el2_module(__kvm_nvhe_pkvmi_init, &token);
 
   if (ret)
     return ret;
 
-  ret = pkvm_register_el2_mod_call(__kvm_nvhe_pkvm_hello_hvc, token);
+  ret = pkvm_register_el2_mod_call(__kvm_nvhe_pkvmi_hvc, token);
 
   if (ret < 0)
     return ret;
 
-  hello_hvc = ret;
+  pkvmi_hvc = ret;
 
   return 0;
 }
 
-long hello_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
+long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 	long ret = -ENOTTY;
   int r;
 
   switch (cmd) {
 
-    case HELLO_HYPM_GREET:
+    case HYPM_INIT:
 
-      r = pkvm_el2_mod_call(hello_hvc);
+      r = pkvm_el2_mod_call(pkvmi_hvc, PKVMI_INIT, pkvm_vm_table_pa);
 
       if (r == 67)
-        g_msg = "Hello from EL2!";
+        g_msg = "lets goo jit";
       else 
         g_msg = "bruh";
 

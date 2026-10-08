@@ -1,17 +1,17 @@
-#ifndef HELLO_H
-#define HELLO_H
+#ifndef PKVMI_H
+#define PKVMI_H
 
 #include <linux/ioctl.h>
 
 struct file;
+extern void* pkvm_vm_table_pa;
 
-#define HELLO_MSG_LEN 32
+#define IOCTL_MSG_LEN 32
 
-#define HELLO_HYPM_INIT _IOR('i', 1, long)
-#define HELLO_HYPM_GREET _IOR('h', 2, char[HELLO_MSG_LEN])
+#define HYPM_INIT _IOR('h', 2, char[IOCTL_MSG_LEN])
 
-long hello_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 int pkvm_driver_init(void);
-void vm_table_pa_find(void);
+int vm_table_pa_find(void);
 
 #endif

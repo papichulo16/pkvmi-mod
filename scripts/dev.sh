@@ -130,6 +130,7 @@ dev_pack_initramfs() {
 
 main() {
 	dev_parse_args "$@"
+  make -C "$g_dir" clean
 	make -C "$g_dir" KDIR="$g_kout" LLVM="$(dev_llvm)"
 	dev_collect_files
 	dev_pack_initramfs

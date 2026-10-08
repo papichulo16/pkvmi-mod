@@ -7,19 +7,19 @@
 
 #include "pkvmi.h"
 
-static const struct file_operations g_hello_fops = {
+static const struct file_operations g_pkvmi_fops = {
 	.owner = THIS_MODULE,
-	.unlocked_ioctl = hello_ioctl,
+	.unlocked_ioctl = pkvmi_ioctl,
 };
 
-static struct miscdevice g_hello_misc = {
+static struct miscdevice g_pkvmi_misc = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "hello",
-	.fops = &g_hello_fops,
+	.name = "pkvmi",
+	.fops = &g_pkvmi_fops,
 	.mode = 0666,
 };
 
-static int __init hello_init(void) {
+static int __init pkvmi_init(void) {
 
   int ret = pkvm_driver_init();
 
@@ -28,16 +28,16 @@ static int __init hello_init(void) {
 
   vm_table_pa_find();
 
-  return misc_register(&g_hello_misc);
+  return misc_register(&g_pkvmi_misc);
 }
 
-static void __exit hello_exit(void) {
+static void __exit pkvmi_exit(void) {
 
-  misc_deregister(&g_hello_misc);
+  misc_deregister(&g_pkvmi_misc);
 }
 
-module_init(hello_init);
-module_exit(hello_exit);
+module_init(pkvmi_init);
+module_exit(pkvmi_exit);
 
 MODULE_DESCRIPTION("hello world from an hvc sent over ioctl");
 MODULE_LICENSE("GPL");
