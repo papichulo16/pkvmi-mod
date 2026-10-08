@@ -16,7 +16,7 @@
  * I want to pass that PA to the EL2 module since it is 
  * correct in hypervisor space because of link time shenanigans 
  *
- * I lowkey dont understand why, but that is the goal
+ * I lowkey dont understand why that is even there, but that is the goal
  * */
 
 void vm_table_pa_find(void) {}
