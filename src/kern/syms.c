@@ -13,6 +13,8 @@
  * correct in hypervisor space because of link time shenanigans 
  *
  * I lowkey dont understand why that is even there, but that is the goal
+ *
+ * well I do, its just retarded imo. but maybe I dont know much about linkers
  * */
 
 typedef void* (*kallsyms_lookup_name_t)(const char *name);

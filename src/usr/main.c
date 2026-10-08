@@ -46,14 +46,14 @@ void __attribute__((noreturn)) _start(void) {
 	int failed = 1;
 	long fd = sys_call(SYS_OPENAT, AT_FDCWD, (long)"/dev/pkvmi", O_RDWR);
 
-	if (fd < 0 || sys_call(SYS_IOCTL, fd, HYPM_GREET, (long)msg) != 0)
+	if (fd < 0 || sys_call(SYS_IOCTL, fd, HYPM_INIT, (long)msg) != 0)
 		goto out;
 
 	print("test is back: ");
 	print(msg);
 	print("\n");
 
-	failed = !str_eq(msg, "lets gooo jit");
+	failed = !str_eq(msg, "lets goo jit");
 
 out:
 	print(failed ? "FAIL\n" : "PASS\n");

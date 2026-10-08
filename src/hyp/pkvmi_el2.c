@@ -4,11 +4,24 @@
 #include "pkvmi_args.h"
 
 static struct pkvm_module_ops* ops;
+static void** p_vm_table;
+static void* vm_table;
 
 static int find_vm_table_hva(void* vm_table_pa) {
 
   if (!vm_table_pa)
     return 0;
+
+  p_vm_table = (void **) ops->hyp_va((phys_addr_t) vm_table_pa);
+
+  if (!p_vm_table) 
+    return 1;
+
+  vm_table = *p_vm_table;
+
+  // page aligned
+  if (!vm_table || (unsigned long) vm_table & 0xfff)
+    return 2;
 
   return 67;
 } 
