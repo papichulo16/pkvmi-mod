@@ -4,6 +4,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/uaccess.h>
+#include <linux/gfp.h>
 #include <asm/kvm_pkvm_module.h>
 
 #include "pkvmi.h"
@@ -14,6 +15,7 @@ void __kvm_nvhe_pkvmi_hvc(struct kvm_cpu_context *ctx);
 
 char* g_msg;
 static int pkvmi_hvc;
+static struct page *shared_page;
 
 int pkvm_driver_init(void) {
 
@@ -35,6 +37,16 @@ int pkvm_driver_init(void) {
   return 0;
 }
 
+static int pkvmi_init_hvc(void) {
+
+  shared_page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+
+	if (!shared_page)
+		return -ENOMEM;
+
+  return pkvm_el2_mod_call(pkvmi_hvc, PKVMI_INIT, pkvm_vm_table_pa, page_to_pfn(shared_page));
+}
+
 long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 	long ret = -ENOTTY;
@@ -44,9 +56,9 @@ long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
     case HYPM_INIT:
 
-      r = pkvm_el2_mod_call(pkvmi_hvc, PKVMI_INIT, pkvm_vm_table_pa);
+      r = pkvmi_init_hvc(); 
 
-      if (r == 67)
+      if (!r)
         g_msg = "lets goo jit";
       else 
         g_msg = "bruh";

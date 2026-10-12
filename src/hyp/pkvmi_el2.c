@@ -1,41 +1,86 @@
 #include <asm/kvm_pkvm_module.h>
 #include <nvhe/trap_handler.h>
 
+#include "el2.h"
 #include "pkvmi_args.h"
 
 static struct pkvm_module_ops* ops;
+
 static void** p_vm_table;
 static void* vm_table;
+
+static void* shared_page;
+static int shared_pfn;
 
 static int find_vm_table_hva(void* vm_table_pa) {
 
   if (!vm_table_pa)
-    return 0;
+    return 1;
 
   p_vm_table = (void **) ops->hyp_va((phys_addr_t) vm_table_pa);
 
   if (!p_vm_table) 
-    return 1;
+    return 2;
 
   vm_table = *p_vm_table;
 
   // page aligned
   if (!vm_table || (unsigned long) vm_table & 0xfff)
-    return 2;
+    return 3;
 
-  return 67;
+  return 0;
 } 
+
+static int share_page(int pfn) {
+
+  int ret = 0;
+  void * page;
+
+  if (shared_page)
+    return 5;
+
+  ret = ops->host_share_hyp(pfn);
+  if (ret)
+    goto end;
+
+  page = ops->hyp_va(pfn << PAGE_SHIFT);
+	ret = ops->pin_shared_mem(page, page + PAGE_SIZE);
+
+  if (ret) {
+		ops->host_unshare_hyp(pfn);
+		goto end;
+	}
+
+  shared_page = page;
+	shared_pfn = pfn;
+
+end:
+  return ret;
+}
+
+static int pkvmi_init_globals(void* vm_table_pa, int pfn) {
+
+  int ret = find_vm_table_hva(vm_table_pa);
+
+  if (ret)
+    goto end;
+
+  ret = share_page(pfn);
+
+end:
+  return ret;
+}
 
 void pkvmi_hvc(struct kvm_cpu_context *ctx) {
 
   switch (cpu_reg(ctx, 1)) {
 
     case PKVMI_INIT:
-      cpu_reg(ctx, 1) = find_vm_table_hva((void *) cpu_reg(ctx, 2));
+      cpu_reg(ctx, 1) = pkvmi_init_globals((void *) cpu_reg(ctx, 2), cpu_reg(ctx, 3));
       break;
 
     default:
-      cpu_reg(ctx, 1) = 0;
+      cpu_reg(ctx, 1) = 1;
       break;
   }
 }
