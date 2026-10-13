@@ -4,29 +4,29 @@
 #include "el2.h"
 #include "pkvmi_args.h"
 
-static struct pkvm_module_ops* ops;
+struct pkvm_module_ops* ops;
 
 static void** p_vm_table;
 static void* vm_table;
 
-static void* shared_page;
+void* shared_page;
 static int shared_pfn;
 
 static int find_vm_table_hva(void* vm_table_pa) {
 
   if (!vm_table_pa)
-    return 1;
+    return -EFAULT;
 
   p_vm_table = (void **) ops->hyp_va((phys_addr_t) vm_table_pa);
 
   if (!p_vm_table) 
-    return 2;
+    return -EFAULT;
 
   vm_table = *p_vm_table;
 
   // page aligned
   if (!vm_table || (unsigned long) vm_table & 0xfff)
-    return 3;
+    return -EFAULT;
 
   return 0;
 } 
@@ -37,7 +37,7 @@ static int share_page(int pfn) {
   void * page;
 
   if (shared_page)
-    return 5;
+    return -EFAULT;
 
   ret = ops->host_share_hyp(pfn);
   if (ret)
@@ -77,6 +77,24 @@ void pkvmi_hvc(struct kvm_cpu_context *ctx) {
 
     case PKVMI_INIT:
       cpu_reg(ctx, 1) = pkvmi_init_globals((void *) cpu_reg(ctx, 2), cpu_reg(ctx, 3));
+      break;
+
+    case PKVMI_REG_DUMP:
+      if (!shared_page) {
+        cpu_reg(ctx, 1) = 1;
+        break;
+      }
+      host_hyp_reg_dump(shared_page);
+      cpu_reg(ctx, 1) = 0;
+      break;
+
+    case PKVMI_READ_PA:
+      if (!shared_page) {
+        cpu_reg(ctx, 1) = 1;
+        break;
+      }
+      host_read_pa(shared_page, (void *) cpu_reg(ctx, 2));
+      cpu_reg(ctx, 1) = 0;
       break;
 
     default:
