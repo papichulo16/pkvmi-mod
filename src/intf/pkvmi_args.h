@@ -2,3 +2,5 @@
 #define PKVM_MAP 2
 #define PKVMI_REG_DUMP 3
 #define PKVMI_READ_PA 4
+#define PKVMI_REG_DUMP_EL1 5
+#define PKVMI_READ_PA_EL1 6

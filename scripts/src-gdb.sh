@@ -18,7 +18,7 @@ set -euo pipefail
 g_here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 g_kout=${KOUT:-$g_here/../ignore/out-qemu-6.1}
 g_obj=$(realpath "$g_here/../src/hyp/kvm_nvhe.o")
-g_hvc=${HVC_FN:-pkvmi_hvc}
+g_hvc=${HVC_FN:-host_el1_map_va}
 g_funcs=${HYP_FUNCS:-$g_hvc}
 g_gdb=${GDB:-gdb}
 g_script=$(mktemp)

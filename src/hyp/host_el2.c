@@ -7,7 +7,7 @@
 
 #undef memcpy
 
-void host_hyp_reg_dump(void* dst_page) {
+void host_el2_reg_dump(void* dst_page) {
 
   struct hyp_reg_dump* out = dst_page;
 
@@ -25,7 +25,7 @@ void host_hyp_reg_dump(void* dst_page) {
   out->vtcr_el2 = read_sysreg(vtcr_el2);
 }
 
-void host_read_pa(void* dst_page, void* pa) {
+void host_el2_read_pa(void* dst_page, void* pa) {
 
   void* src = ops->hyp_va((phys_addr_t) pa);
 

@@ -19,6 +19,7 @@
 
 typedef void* (*kallsyms_lookup_name_t)(const char *name);
 
+void* kimage_voff = NULL;
 void* pkvm_vm_table_pa;
 
 static kallsyms_lookup_name_t get_kallsyms_lookup_name(void) {
@@ -44,7 +45,6 @@ static kallsyms_lookup_name_t get_kallsyms_lookup_name(void) {
 int vm_table_pa_find(void) {
  
     kallsyms_lookup_name_t fun_lookup_name = get_kallsyms_lookup_name();
-    void* kimage_voffset = NULL;
     void* pkvm_vm_table_va = NULL;
 
     if (!fun_lookup_name) {
@@ -52,17 +52,17 @@ int vm_table_pa_find(void) {
         return -EFAULT;
     }
 
-    kimage_voffset = fun_lookup_name("kimage_voffset");
+    kimage_voff = fun_lookup_name("kimage_voffset");
     pkvm_vm_table_va = fun_lookup_name("__kvm_nvhe_vm_table");
 
-    pr_info("===== kimage_voffset 0x%px\n", kimage_voffset);
+    pr_info("===== kimage_voffset 0x%px\n", kimage_voff);
     pr_info("===== __kvm_nvhe_vm_table VA 0x%px\n", pkvm_vm_table_va);
 
-    if (!kimage_voffset || !pkvm_vm_table_va)
+    if (!kimage_voff || !pkvm_vm_table_va)
       return -EFAULT;
    
-    kimage_voffset = *(void **) kimage_voffset;
-    pkvm_vm_table_pa = (void *) ((unsigned long) pkvm_vm_table_va - (unsigned long) kimage_voffset);
+    kimage_voff = *(void **) kimage_voff;
+    pkvm_vm_table_pa = (void *) ((unsigned long) pkvm_vm_table_va - (unsigned long) kimage_voff);
 
     pr_info("===== __kvm_nvhe_vm_table PA 0x%px\n", pkvm_vm_table_pa);
 

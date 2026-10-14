@@ -8,6 +8,7 @@ struct pkvm_module_ops* ops;
 
 static void** p_vm_table;
 static void* vm_table;
+void* kimage_voff;
 
 void* shared_page;
 static int shared_pfn;
@@ -58,12 +59,14 @@ end:
   return ret;
 }
 
-static int pkvmi_init_globals(void* vm_table_pa, int pfn) {
+static int pkvmi_init_globals(void* el1_kbase, void* vm_table_pa, int pfn) {
 
   int ret = find_vm_table_hva(vm_table_pa);
 
   if (ret)
     goto end;
+
+  kimage_voff = el1_kbase;
 
   ret = share_page(pfn);
 
@@ -76,28 +79,55 @@ void pkvmi_hvc(struct kvm_cpu_context *ctx) {
   switch (cpu_reg(ctx, 1)) {
 
     case PKVMI_INIT:
-      cpu_reg(ctx, 1) = pkvmi_init_globals((void *) cpu_reg(ctx, 2), cpu_reg(ctx, 3));
+
+      cpu_reg(ctx, 1) = pkvmi_init_globals((void *) cpu_reg(ctx, 2), (void *) cpu_reg(ctx, 3), cpu_reg(ctx, 4));
       break;
 
     case PKVMI_REG_DUMP:
+
       if (!shared_page) {
         cpu_reg(ctx, 1) = 1;
         break;
       }
-      host_hyp_reg_dump(shared_page);
+
+      host_el2_reg_dump(shared_page);
       cpu_reg(ctx, 1) = 0;
       break;
 
     case PKVMI_READ_PA:
+
       if (!shared_page) {
         cpu_reg(ctx, 1) = 1;
         break;
       }
-      host_read_pa(shared_page, (void *) cpu_reg(ctx, 2));
+
+      host_el2_read_pa(shared_page, (void *) cpu_reg(ctx, 2));
       cpu_reg(ctx, 1) = 0;
       break;
 
+    case PKVMI_REG_DUMP_EL1:
+
+      if (!shared_page) {
+        cpu_reg(ctx, 1) = 1;
+        break;
+      }
+
+      host_el1_reg_dump(shared_page);
+      cpu_reg(ctx, 1) = 0;
+      break;
+
+    case PKVMI_READ_PA_EL1:
+
+      if (!shared_page) {
+        cpu_reg(ctx, 1) = 1;
+        break;
+      }
+
+      cpu_reg(ctx, 1) = host_el1_read_pa(shared_page, (void *) cpu_reg(ctx, 2));
+      break;
+
     default:
+
       cpu_reg(ctx, 1) = 1;
       break;
   }

@@ -45,7 +45,7 @@ static int pkvmi_init_hvc(void) {
 	if (!shared_page)
 		return -ENOMEM;
 
-  return pkvm_el2_mod_call(pkvmi_hvc, PKVMI_INIT, pkvm_vm_table_pa, page_to_pfn(shared_page));
+  return pkvm_el2_mod_call(pkvmi_hvc, PKVMI_INIT, kimage_voffset, pkvm_vm_table_pa, page_to_pfn(shared_page));
 }
 
 static int pkvmi_reg_dump_hvc(void) {
@@ -62,6 +62,22 @@ static int pkvmi_read_pa_hvc(unsigned long pa) {
     return -ENODEV;
 
   return pkvm_el2_mod_call(pkvmi_hvc, PKVMI_READ_PA, pa);
+}
+
+static int pkvmi_reg_dump_el1_hvc(void) {
+
+  if (!shared_page)
+    return -ENODEV;
+
+  return pkvm_el2_mod_call(pkvmi_hvc, PKVMI_REG_DUMP_EL1);
+}
+
+static int pkvmi_read_pa_el1_hvc(unsigned long va) {
+
+  if (!shared_page)
+    return -ENODEV;
+
+  return pkvm_el2_mod_call(pkvmi_hvc, PKVMI_READ_PA_EL1, va);
 }
 
 static long pkvmi_page_to_user(unsigned long arg) {
@@ -106,6 +122,27 @@ long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
       }
 
       r = pkvmi_read_pa_hvc(pa);
+
+      ret = r ? -EIO : pkvmi_page_to_user(arg);
+
+      break;
+
+    case HYPM_REG_DUMP_EL1:
+
+      r = pkvmi_reg_dump_el1_hvc();
+
+      ret = r ? -EIO : pkvmi_page_to_user(arg);
+
+      break;
+
+    case HYPM_READ_PA_EL1:
+
+      if (copy_from_user(&pa, (void __user *)arg, sizeof(pa))) {
+        ret = -EFAULT;
+        break;
+      }
+
+      r = pkvmi_read_pa_el1_hvc(pa);
 
       ret = r ? -EIO : pkvmi_page_to_user(arg);
 

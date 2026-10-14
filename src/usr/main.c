@@ -1,6 +1,8 @@
 #include "pkvmi.h"
 #include "pkvmi_regs.h"
 
+#define PAGE_SIZE 0x1000
+
 #define SYS_IOCTL 29
 #define SYS_OPENAT 56
 #define SYS_READ 63
@@ -176,6 +178,66 @@ static void cmd_regdump(int fd) {
 	print("vtcr_el2  "); print_u64_hex(r->vtcr_el2);  print("\n");
 }
 
+static void cmd_regdump_el1(int fd) {
+
+	char page[IOCTL_MSG_LEN];
+	struct el1_reg_dump *r = (struct el1_reg_dump *)page;
+
+	if (sys_call(SYS_IOCTL, fd, HYPM_REG_DUMP_EL1, (long)page) != 0) {
+		print("regdump_el1 failed\n");
+		return;
+	}
+
+	print("sctlr_el1 "); print_u64_hex(r->sctlr_el1); print("\n");
+	print("tcr_el1   "); print_u64_hex(r->tcr_el1);   print("\n");
+	print("ttbr0_el1 "); print_u64_hex(r->ttbr0_el1); print("\n");
+	print("ttbr1_el1 "); print_u64_hex(r->ttbr1_el1); print("\n");
+	print("mair_el1  "); print_u64_hex(r->mair_el1);  print("\n");
+	print("vbar_el1  "); print_u64_hex(r->vbar_el1);  print("\n");
+	print("esr_el1   "); print_u64_hex(r->esr_el1);   print("\n");
+	print("elr_el1   "); print_u64_hex(r->elr_el1);   print("\n");
+	print("spsr_el1  "); print_u64_hex(r->spsr_el1);  print("\n");
+	print("sp_el1    "); print_u64_hex(r->sp_el1);    print("\n");
+	print("tpidr_el1 "); print_u64_hex(r->tpidr_el1); print("\n");
+	print("par_el1   "); print_u64_hex(r->par_el1);   print("\n");
+}
+
+static void cmd_readpa_el1(int fd, const char *arg) {
+
+	char page[IOCTL_MSG_LEN];
+	int ok;
+	unsigned long va;
+	int row;
+
+	va = parse_hex(arg, &ok);
+
+	if (!ok) {
+		print("usage: readpa_el1 <hex-va>\n");
+		return;
+	}
+
+	*(unsigned long *)page = va;
+
+	if (sys_call(SYS_IOCTL, fd, HYPM_READ_PA_EL1, (long)page) != 0) {
+		print("readpa_el1 failed\n");
+		return;
+	}
+
+	for (row = 0; row < (int) (IOCTL_MSG_LEN / 0x10); row++) {
+		int col;
+
+		print_u64_hex(va + row * 16);
+		print("  ");
+
+		for (col = 0; col < 2; col++) {
+			print_u64_hex(((unsigned long *) page)[row * 2 + col]);
+			print(" ");
+		}
+
+		print("\n");
+	}
+}
+
 static void cmd_readpa(int fd, const char *arg) {
 
 	char page[IOCTL_MSG_LEN];
@@ -197,15 +259,14 @@ static void cmd_readpa(int fd, const char *arg) {
 		return;
 	}
 
-	/* First 256 bytes of the page, 16 per row. */
-	for (row = 0; row < 16; row++) {
+	for (row = 0; row < (int) (IOCTL_MSG_LEN / 0x10); row++) {
 		int col;
 
 		print_u64_hex(pa + row * 16);
 		print("  ");
 
-		for (col = 0; col < 16; col++) {
-			print_byte_hex((unsigned char)page[row * 16 + col]);
+		for (col = 0; col < 2; col++) {
+			print_u64_hex(((unsigned long *) page)[row * 2 + col]);
 			print(" ");
 		}
 
@@ -216,10 +277,12 @@ static void cmd_readpa(int fd, const char *arg) {
 static void cmd_help(void) {
 
 	print("commands:\n");
-	print("  regdump          dump EL2 system registers\n");
-	print("  readpa <hex-pa>  read a physical page\n");
-	print("  help             show this\n");
-	print("  exit             quit\n");
+	print("  regdump             dump EL2 system registers\n");
+	print("  readpa <hex-pa>     read a physical page\n");
+	print("  regdump_el1         dump EL1 system registers\n");
+	print("  readpa_el1 <hex-va> read a kernel virtual page\n");
+	print("  help                show this\n");
+	print("  exit                quit\n");
 }
 
 void __attribute__((noreturn)) _start(void) {
@@ -253,7 +316,11 @@ void __attribute__((noreturn)) _start(void) {
 		if (len < 0)
 			break;
 
-		if (tok_eq(line, "regdump", &rest))
+		if (tok_eq(line, "regdump_el1", &rest))
+			cmd_regdump_el1((int)fd);
+		else if (tok_eq(line, "readpa_el1", &rest))
+			cmd_readpa_el1((int)fd, rest);
+		else if (tok_eq(line, "regdump", &rest))
 			cmd_regdump((int)fd);
 		else if (tok_eq(line, "readpa", &rest))
 			cmd_readpa((int)fd, rest);
