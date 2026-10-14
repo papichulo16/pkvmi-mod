@@ -116,15 +116,14 @@ void host_el1_unmap(void) {
 
 int host_el1_read_pa(void* dst_page, void* pa) {
 
-  unsigned long kbase_tmp = (((unsigned long) &host_el1_read_pa & (0x1ffUL << L1_SHIFT)) + (1UL << L1_SHIFT));
-  unsigned long tmp = (unsigned long) host_el1_map_va(kbase_tmp);
+  void* va = el2_tmp_map_phys((phys_addr_t) pa);
 
-  if (!tmp)
+  if (!va)
     return -EFAULT;
 
-  ops->memcpy(dst_page, (void *) ((unsigned long) pa + tmp), PAGE_SIZE);
+  ops->memcpy(dst_page, va, PAGE_SIZE);
 
-  host_el1_unmap();
+  host_el1_tmp_unmap();
   return 0;
 }
 
