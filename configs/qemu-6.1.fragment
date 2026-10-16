@@ -23,7 +23,11 @@ CONFIG_DEBUG_INFO_DWARF5=y
 # CONFIG_DEBUG_INFO_BTF is not set
 # CONFIG_DEBUG_INFO_COMPRESSED is not set
 
+# Strict kCFI like the phone: an indirect call through a wrongly typed
+# function pointer panics here instead of only on the device.
+CONFIG_CFI_CLANG=y
+# CONFIG_CFI_PERMISSIVE is not set
+
 # Things gki_defconfig enables that only slow down a TCG dev build.
 # CONFIG_KASAN is not set
-# CONFIG_CFI_CLANG is not set
 # CONFIG_SHADOW_CALL_STACK is not set

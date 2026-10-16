@@ -3,6 +3,7 @@
 
 #include <linux/ioctl.h>
 
+#include "pkvmi_err.h"
 #include "pkvmi_regs.h"
 
 struct file;
@@ -18,8 +19,9 @@ extern void* kimage_voff;
 #define HYPM_READ_PA_EL1 _IOWR('h', 6, char[IOCTL_MSG_LEN])
 
 long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
-int pkvm_driver_init(void);
-int vm_table_pa_find(void);
+unsigned long pkvm_driver_init(void);
+unsigned long vm_table_pa_find(void);
+void pkvmi_log_err(unsigned long ret);
 
 #endif
 

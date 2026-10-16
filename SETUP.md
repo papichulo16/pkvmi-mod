@@ -63,7 +63,7 @@ Other phones: `setup-device.sh pixel8` etc.; add one in `scripts/pixel/devices.c
 
 ## 4. Build the 6.1 kernel for QEMU (~8 min, 12 cores)
 
-Same source (`aosp/`) and compiler as the phone kernel, on a generic `virt` machine. `configs/qemu-6.1.fragment` adds virtio and pl011 to `gki_defconfig` and turns off KASAN, CFI and BTF, which only slow a TCG dev build down. The built-in command line already has `kvm-arm.mode=protected`, same as the phone.
+Same source (`aosp/`) and compiler as the phone kernel, on a generic `virt` machine. `configs/qemu-6.1.fragment` adds virtio and pl011 to `gki_defconfig`, keeps strict kCFI on as on the phone (a wrongly typed function-pointer call panics here too), and turns off KASAN, shadow call stack and BTF, which only slow a TCG dev build down. The built-in command line already has `kvm-arm.mode=protected`, same as the phone.
 
 ```sh
 T=$PWD/ignore/pixel/kernels/pantah-6.1-android16

@@ -1,10 +1,12 @@
 ifneq ($(KERNELRELEASE),)
-g_inc := $(abspath $(src)/intf)
+# Kleaf passes M relative to the kernel source, QEMU builds pass it absolute
+g_src_dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
+g_inc := $(abspath $(g_src_dir)/intf)
 subdir-ccflags-y += -I$(srctree)/arch/arm64/kvm/hyp/include/ -I$(g_inc)
 ccflags-y += -I$(g_inc)
 
-g_kern_src := $(sort $(wildcard $(src)/kern/*.c))
-g_kern_obj := $(patsubst $(src)/%.c,%.o,$(g_kern_src))
+g_kern_src := $(sort $(wildcard $(g_src_dir)/kern/*.c))
+g_kern_obj := $(patsubst $(g_src_dir)/%.c,%.o,$(g_kern_src))
 
 obj-m := pkvmi.o
 pkvmi-y := $(g_kern_obj) hyp/kvm_nvhe.o

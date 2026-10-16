@@ -21,14 +21,22 @@ static struct miscdevice g_pkvmi_misc = {
 
 static int __init pkvmi_init(void) {
 
-  int ret = pkvm_driver_init();
+  unsigned long ret = pkvm_driver_init();
+  int err;
+
+  pkvmi_log_err(ret);
 
   if (ret)
-    return ret;
+    goto end;
 
-  vm_table_pa_find();
+  pkvmi_log_err(vm_table_pa_find());
 
-  return misc_register(&g_pkvmi_misc);
+  err = misc_register(&g_pkvmi_misc);
+  ret = PKVMI_ERR(PKVMI_ERR_MISC_REGISTER, err);
+  pkvmi_log_err(ret);
+
+end:
+  return PKVMI_ERR_ERRNO(ret);
 }
 
 static void __exit pkvmi_exit(void) {

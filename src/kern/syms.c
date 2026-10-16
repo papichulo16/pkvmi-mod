@@ -17,55 +17,62 @@
  * well I do, its just retarded imo. but maybe I dont know much about linkers
  * */
 
-typedef void* (*kallsyms_lookup_name_t)(const char *name);
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 
 void* kimage_voff = NULL;
 void* pkvm_vm_table_pa;
 
-static kallsyms_lookup_name_t get_kallsyms_lookup_name(void) {
- 
+static int get_kallsyms_lookup_name(kallsyms_lookup_name_t* out) {
+
     struct kprobe kp = {
         .symbol_name = "kallsyms_lookup_name",
     };
 
-    kallsyms_lookup_name_t f;
     int ret = register_kprobe(&kp);
 
-    if (ret < 0) {
-        pr_err("===== kprobe bad\n");
-        return NULL;
-    }
+    if (ret < 0)
+        goto end;
 
-    f = (kallsyms_lookup_name_t) kp.addr;
+    *out = (kallsyms_lookup_name_t) kp.addr;
     unregister_kprobe(&kp);
 
-    return f;
+end:
+    return ret;
 }
 
-int vm_table_pa_find(void) {
- 
-    kallsyms_lookup_name_t fun_lookup_name = get_kallsyms_lookup_name();
+unsigned long vm_table_pa_find(void) {
+
+    kallsyms_lookup_name_t fun_lookup_name = NULL;
     void* pkvm_vm_table_va = NULL;
+    int err = get_kallsyms_lookup_name(&fun_lookup_name);
+    unsigned long ret = PKVMI_ERR(PKVMI_ERR_KPROBE, err);
 
-    if (!fun_lookup_name) {
-        pr_err("===== fun lookup bad\n");
-        return -EFAULT;
-    }
+    if (err < 0)
+        goto end;
 
-    kimage_voff = fun_lookup_name("kimage_voffset");
-    pkvm_vm_table_va = fun_lookup_name("__kvm_nvhe_vm_table");
+    kimage_voff = (void *) fun_lookup_name("kimage_voffset");
+    pkvm_vm_table_va = (void *) fun_lookup_name("__kvm_nvhe_vm_table");
 
     pr_info("===== kimage_voffset 0x%px\n", kimage_voff);
     pr_info("===== __kvm_nvhe_vm_table VA 0x%px\n", pkvm_vm_table_va);
 
-    if (!kimage_voff || !pkvm_vm_table_va)
-      return -EFAULT;
-   
+    ret = PKVMI_ERR(PKVMI_ERR_KIMAGE_VOFF, -ENOENT);
+
+    if (!kimage_voff)
+        goto end;
+
+    ret = PKVMI_ERR(PKVMI_ERR_VM_TABLE_SYM, -ENOENT);
+
+    if (!pkvm_vm_table_va)
+        goto end;
+
     kimage_voff = *(void **) kimage_voff;
     pkvm_vm_table_pa = (void *) ((unsigned long) pkvm_vm_table_va - (unsigned long) kimage_voff);
 
     pr_info("===== __kvm_nvhe_vm_table PA 0x%px\n", pkvm_vm_table_pa);
 
-    return 0;
-}
+    ret = PKVMI_OK;
 
+end:
+    return ret;
+}

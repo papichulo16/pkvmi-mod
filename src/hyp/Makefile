@@ -3,6 +3,7 @@
 vpath %.S $(srctree)
 
 # Every .c in this directory is built into the EL2 object.
-hyp-obj-y := $(patsubst $(src)/%.c,%.o,$(sort $(wildcard $(src)/*.c)))
+g_hyp_dir := $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
+hyp-obj-y := $(patsubst $(g_hyp_dir)/%.c,%.o,$(sort $(wildcard $(g_hyp_dir)/*.c)))
 include $(srctree)/arch/arm64/kvm/hyp/nvhe/Makefile.module
 

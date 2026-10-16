@@ -18,34 +18,53 @@ char* g_msg;
 static int pkvmi_hvc;
 static struct page *shared_page;
 
-int pkvm_driver_init(void) {
+unsigned long pkvm_driver_init(void) {
 
   unsigned long token;
-  int ret;
+  unsigned long ret;
+  int err;
 
-  ret = pkvm_load_el2_module(__kvm_nvhe_pkvmi_init, &token);
+  err = pkvm_load_el2_module(__kvm_nvhe_pkvmi_init, &token);
+  ret = PKVMI_ERR(PKVMI_ERR_EL2_LOAD, err);
 
-  if (ret)
-    return ret;
+  if (err)
+    goto end;
 
-  ret = pkvm_register_el2_mod_call(__kvm_nvhe_pkvmi_hvc, token);
+  err = pkvm_register_el2_mod_call(__kvm_nvhe_pkvmi_hvc, token);
+  ret = PKVMI_ERR(PKVMI_ERR_HVC_REGISTER, err);
 
-  if (ret < 0)
-    return ret;
+  if (err < 0)
+    goto end;
 
-  pkvmi_hvc = ret;
+  pkvmi_hvc = err;
+  ret = PKVMI_OK;
 
-  return 0;
+end:
+  return ret;
 }
 
-static int pkvmi_init_hvc(void) {
+static unsigned long pkvmi_init_hvc(void) {
+
+  unsigned long ret = PKVMI_OK;
+
+  if (shared_page)
+    goto end;
 
   shared_page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+  ret = PKVMI_ERR(PKVMI_ERR_SHARED_ALLOC, -ENOMEM);
 
-	if (!shared_page)
-		return -ENOMEM;
+  if (!shared_page)
+    goto end;
 
-  return pkvm_el2_mod_call(pkvmi_hvc, PKVMI_INIT, kimage_voffset, pkvm_vm_table_pa, page_to_pfn(shared_page));
+  ret = pkvm_el2_mod_call(pkvmi_hvc, PKVMI_INIT, kimage_voffset, pkvm_vm_table_pa, page_to_pfn(shared_page));
+
+  if (ret) {
+    __free_page(shared_page);
+    shared_page = NULL;
+  }
+
+end:
+  return ret;
 }
 
 static int pkvmi_reg_dump_hvc(void) {
@@ -88,7 +107,7 @@ static long pkvmi_page_to_user(unsigned long arg) {
 long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
 
 	long ret = -ENOTTY;
-  int r;
+  unsigned long r;
   unsigned long pa;
 
   switch (cmd) {
@@ -96,6 +115,7 @@ long pkvmi_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     case HYPM_INIT:
 
       r = pkvmi_init_hvc();
+      pkvmi_log_err(r);
 
       if (!r)
         g_msg = "lets goo jit";
